@@ -1,11 +1,875 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CasT-Security</title>
+
+<link rel="stylesheet" href="/static/style.css">:D
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
 </head>
+
 <body>
-    lol
+    <canvas id="bgCanvas"></canvas>
+
+    <section class="screen">
+        <div class="dashboard">
+            <div class="controls">
+                <div class="range">
+                    <button id="realtimeBtn">Realtime</button>
+                    <button id="hoursBtn">24 hours</button>
+                    <button id="daysBtn" class="active">7 days</button>
+                </div>
+            
+                <div style="width:300px;color:#4da3ff">
+                    <input id="timeRange" type="range" min="0" max="24" value="0" style="width:100%">
+                    <div id="timeLabel">0 hour back</div>
+                </div>
+            
+                <div class="filters">
+                    <label><input type="checkbox" data-index="0" checked> Total</label>
+                    <label><input type="checkbox" data-index="1" checked> Blocked</label>
+                    <label><input type="checkbox" data-index="2" checked> Verified</label>
+                    <label><input type="checkbox" data-index="3" checked> 4xx</label>
+                    <label><input type="checkbox" data-index="4" checked> 5xx</label>
+                    <label><input type="checkbox" data-index="5" checked> IP's</label>
+                    <label><input type="checkbox" data-index="6" checked> Blocked IP's</label>
+                </div>
+            </div>
+        
+            <div class="output">
+                <div class="block-1"><p>Blocked IP's</p><span>0</span></div>
+                <div class="block-2"><p>Total IP's</p><span>0</span></div>
+                <div class="block-3"><p>Verified Requests</p><span>0</span></div>
+                <div class="block-4"><p>Total Requests</p><span>1000000000</span></div>
+                <div class="block-5"><p>Blocked Requests</p><span>0</span></div>
+                <div class="block-6"><p>4xx</p><span>0</span></div>
+                <div class="block-7"><p>5xx</p><span>0</span></div>
+                <div class="block-8" id="topPathBtn"><p>Advanced Info</p></div>
+            
+                <div class="graph">
+                    <canvas id="chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <section class="screen" id="detailsSection">
+        <div class="details">
+            <h2>Advanced Info by valahatiy zeroday :D</h2>
+        
+            <div class="details-container">
+                <div class="details-block">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <h3 style="margin:0;">Top Paths</h3>
+                        <button id="managePaths" class="toggle-btn">Manage</button>
+                    </div>
+                
+                    <ul id="topPathsList">
+                        <li>/api/login</li>
+                        <li>/admin</li>
+                        <li>/wp-login</li>
+                        <li>/api/data</li>
+                        <li>/config</li>
+                    </ul>
+                </div>
+            
+                <div class="details-block">
+                    <h3>4xx Errors</h3>
+                    <ul id="errors4xx">
+                        <li>404 /not-found</li>
+                        <li>403 /forbidden</li>
+                        <li>401 /unauthorized</li>
+                    </ul>
+                </div>
+            
+                <div class="details-block">
+                    <h3>5xx Errors</h3>
+                    <ul id="errors5xx">
+                        <li>500 /server-error</li>
+                        <li>502 /bad-gateway</li>
+                        <li>503 /down</li>
+                    </ul>
+                </div>
+
+                <div class="details-block">
+                    <h3>HTTP Methods</h3>
+                    <ul id="methodsStats"></ul>
+                </div>
+
+                <div class="details-block">
+                    <h3>Avg Response Time</h3>
+                    <ul id="responseTime"></ul>
+                </div>
+
+                <div class="details-block">
+                    <h3>Top User Agents</h3>
+                    <ul id="userAgents"></ul>
+                </div>
+
+                <div class="details-block">
+                    <h3>Invalid Headers</h3>
+                    <ul id="invalidHeaders"></ul>
+                </div>
+
+                <div class="details-block">
+                    <h3>Blocked IPs</h3>
+                    <ul id="blockedIPs"></ul>
+                </div>
+
+                <div class="details-block large">
+                    <h3>Geo Attacks</h3>
+                    <ul id="geoList"></ul>
+                </div>
+
+                <div class="details-block large">
+                    <div class="block-header">
+                        <h3>Attack Rules Debug</h3>
+                        <button class="toggle-btn" id="manageRules">Manage</button>
+                    </div>
+                    <ul id="rulesDebug"></ul>
+                </div>
+
+                <div class="details-block large">
+                    <h3>World Map (Top Countries)</h3>
+                    <div id="worldMap"></div>
+                </div>
+
+                
+            </div>
+        </div>
+    </section>
+
+<div id="popup" style="
+position:fixed;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:#0b1c3a;
+border:1px solid #4da3ff;
+padding:20px;
+border-radius:12px;
+width:400px;
+max-height:70vh;
+overflow:auto;
+display:none;
+z-index:9999;
+box-shadow:0 0 30px rgba(77,163,255,0.4);
+">
+    <h3 id="popupTitle" style="color:#4da3ff;margin-bottom:10px;"></h3>
+    <ul id="popupContent"></ul>
+    <button onclick="closePopup()" style="
+        margin-top:10px;
+        padding:5px 10px;
+        background:#4da3ff;
+        border:none;
+        cursor:pointer;
+    ">Close</button>
+</div>
+
+<script>
+
+let disabledPaths = new Set();
+let disabledRules = new Set();
+
+let historyMode = true;
+
+let historyData = [];
+let chart;
+
+const mapCtx = document.getElementById('worldMap');
+const ctx = document.getElementById('chart');
+
+function applyFilters() {
+    document.querySelectorAll('.filters input').forEach(input => {
+        const i = input.dataset.index;
+
+        if (chart && chart.data.datasets[i]) {
+            chart.data.datasets[i].hidden = !input.checked;
+        }
+    });
+
+    if (chart) chart.update();
+}
+
+let realtimeData = {
+    labels: [],
+    datasets: Array.from({length: 7}, () => [])
+};
+
+const data7days = {
+    labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    datasets: [
+        [10,20,15,30,25,40,35],
+        [2,5,3,6,4,8,5],
+        [8,15,12,24,21,32,30],
+        [1,3,2,4,3,5,4],
+        [0,1,0,2,1,1,2],
+        [0,0,1,3,4,1,1],
+        [1,0,0,0,0,1,12]
+    ]
+};
+
+const data24h = {
+    labels: Array.from({length:24},(_,i)=>i+":00"),
+    datasets: [
+        Array.from({length:24},() => Math.random()*50),
+        Array.from({length:24},() => Math.random()*10),
+        Array.from({length:24},() => Math.random()*40),
+        Array.from({length:24},() => Math.random()*5),
+        Array.from({length:24},() => Math.random()*3),
+        Array.from({length:24},() => Math.random()*3),
+        Array.from({length:24},() => Math.random()*3)
+    ]
+};
+
+const colors = ['#4da3ff','#ff4d4d','#00ffb3','#ffaa00','#ff00ff', '#00ff00', '#ff0000'];
+const names = ['Total','Blocked','Verified','4xx','5xx', 'IP', 'Blocked IP'];
+
+function generateAdvancedData() {
+    return {
+        methods: {
+            GET: rand(5000),
+            POST: rand(2000),
+            PUT: rand(800),
+            DELETE: rand(300),
+            OPTIONS: rand(200),
+            RAW: rand(100)
+        },
+        response: {
+            avg: (Math.random() * 500).toFixed(2) + ' ms'
+        },
+        agents: [
+            {name:"Mozilla/5.0", count: rand(1000)},
+            {name:"curl/7.68", count: rand(400)},
+            {name:"PostmanRuntime", count: rand(300)},
+            {name:"python-requests", count: rand(250)}
+        ],
+        invalidHeaders: [
+            {name:"X-Inject", count: rand(200), ips: rand(50)},
+            {name:"Fake-Agent", count: rand(150), ips: rand(40)},
+            {name:"Null-Byte", count: rand(120), ips: rand(30)},
+            {name:"X-Forwarded-Fake", count: rand(100), ips: rand(25)}
+        ],
+        blockedIPs: Array.from({length: 100}, () => ({
+            ip: randomIP(),
+            requests: rand(1000),
+        })),
+        geo: [
+            {country: "US", req: 1200, ip: 300},
+            {country: "CN", req: 900, ip: 250},
+            {country: "RU", req: 700, ip: 180}
+        ],
+        rules: [
+            {name:"SQL Injection", count: rand(200)},
+            {name:"XSS", count: rand(150)},
+            {name:"Rate Limit", count: rand(300)},
+            {name:"CSRF", count: rand(80)}
+        ],
+        topPaths: [
+            {path:"/api/login", count: rand(500)},
+            {path:"/admin", count: rand(300)},
+            {path:"/wp-login", count: rand(200)},
+            {path:"/api/data", count: rand(400)},
+            {path:"/config", count: rand(150)}
+        ],
+        errors4xx: [
+            {code:"404 /not-found", count: rand(200)},
+            {code:"403 /forbidden", count: rand(150)},
+            {code:"401 /unauthorized", count: rand(120)}
+        ],
+
+        errors5xx: [
+            {code:"500 /server-error", count: rand(100)},
+            {code:"502 /bad-gateway", count: rand(80)},
+            {code:"503 /down", count: rand(60)}
+        ]
+    };
+}
+
+function openManage(type) {
+    const data = generateAdvancedData();
+
+    const list = type === "paths" ? data.topPaths : data.rules;
+    const set = type === "paths" ? disabledPaths : disabledRules;
+
+    const content = document.getElementById("popupContent");
+    content.innerHTML = "";
+
+    list.forEach(i => {
+        const key = type === "paths" ? i.path : i.name;
+
+        const li = document.createElement("li");
+        li.innerHTML = `
+            <label>
+                <input type="checkbox" ${set.has(key) ? "" : "checked"}>
+                ${key}
+            </label>
+        `;
+
+        li.querySelector("input").onchange = (e) => {
+            if (e.target.checked) set.delete(key);
+            else set.add(key);
+            updateAdvancedUI();
+        };
+
+        content.appendChild(li);
+    });
+
+    document.getElementById("popupTitle").innerText =
+        type === "paths" ? "Manage Top Paths" : "Manage Rules";
+
+    document.getElementById("popup").style.display = "block";
+}
+
+document.getElementById("managePaths").onclick = () => openManage("paths");
+document.getElementById("manageRules").onclick = () => openManage("rules");
+
+function openPopup(title, items) {
+    document.getElementById('popupTitle').innerText = title;
+
+    const content = document.getElementById('popupContent');
+    content.innerHTML = "";
+
+    items.forEach(i => {
+        const li = document.createElement("li");
+        li.innerText = i;
+        content.appendChild(li);
+    });
+
+    document.getElementById('popup').style.display = "block";
+}
+
+function closePopup() {
+    document.getElementById('popup').style.display = "none";
+}
+
+function rand(max){ return Math.floor(Math.random()*max); }
+
+function randomIP(){
+    return `${rand(255)}.${rand(255)}.${rand(255)}.${rand(255)}`;
+}
+
+let map;
+let markers = [];
+
+function createAttackCircle(coords, d){
+
+    const baseRadius = Math.sqrt(d.req) * 10000;
+
+    let circle = L.circle(coords, {
+        color: '#6fb3ff',
+        fillColor: '#4da333',
+        fillOpacity: 0.20,
+        radius: baseRadius
+    }).addTo(map);
+
+    circle.on('mouseover', function () {
+        this.setStyle({ fillOpacity: 0.4 });
+    });
+
+    circle.on('mouseout', function () {
+        this.setStyle({ fillOpacity: 0.15 });
+    });
+
+    circle.bindTooltip(
+        `<div class="map-tooltip">
+            <b>${d.country}</b><br>
+            ${d.req} requests<br>
+            ${d.ip} IPs
+        </div>`
+    );
+
+    markers.push(circle);
+}
+
+function getCoords(country){
+    const map = {
+        US: [37.0902, -95.7129],
+        CN: [35.8617, 104.1954],
+        RU: [61.5240, 105.3188],
+        DE: [51.1657, 10.4515],
+        NL: [52.1326, 5.2913]
+    };
+    return map[country];
+}
+
+function renderMap(data){
+
+    if (!map) {
+        map = L.map('worldMap', {
+            zoomControl: false,
+            minZoom: 2,
+            maxZoom: 5,
+            maxBounds: [
+                [-90, -180],
+                [90, 180]
+            ]
+        }).setView([20, 0], 2);
+
+        map.setMaxBounds(map.getBounds());
+
+        L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
+            attribution: ''
+        }).addTo(map);
+    }
+
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+
+    data.forEach(d => {
+        const coords = getCoords(d.country);
+        if (!coords) return;
+
+        createAttackCircle(coords, d);
+    });
+}
+
+function updateAdvancedUI() {
+    const data = generateAdvancedData();
+
+    renderList("methodsStats", Object.entries(data.methods).map(([k,v]) => `${k} → ${v}`));
+    renderList("responseTime", [`Average → ${data.response.avg}`]);
+    renderList(
+        "invalidHeaders",
+        data.invalidHeaders.map(h => 
+            `${h.name} → ${h.count}`
+        )
+    );
+    renderList(
+        "blockedIPs",
+        data.blockedIPs.map(ip => 
+            `${ip.ip} → req: ${ip.requests}`
+        )
+    );
+    renderList("geoList", data.geo.map(g => `${g.country} → ${g.req} req / ${g.ip} IP`));
+    renderList(
+        "rulesDebug",
+        data.rules
+            .filter(r => !disabledRules.has(r.name))
+            .map(r => `${r.name} → ${r.count}`)
+    );
+    renderList(
+        "topPathsList",
+        data.topPaths
+            .filter(p => !disabledPaths.has(p.path))
+            .map(p => `${p.path} → ${p.count}`)
+    );
+    renderList("userAgents", data.agents.map(a => `${a.name} → ${a.count}`));
+    renderList("errors4xx", data.errors4xx.map(e => `${e.code} → ${e.count}`));
+    renderList("errors5xx", data.errors5xx.map(e => `${e.code} → ${e.count}`));
+
+    renderMap(data.geo);
+
+    document.getElementById("topPathsList").parentElement.onclick = () => {
+        openPopup(
+            "Top Paths",
+            data.topPaths.map(p => `${p.path} → ${p.count} hits`)
+        );
+    };
+
+    document.getElementById("errors4xx").parentElement.onclick = () => {
+        openPopup(
+            "4xx Errors",
+            data.errors4xx.map(e => `${e.code} → ${e.count}`)
+        );
+    };
+
+    document.getElementById("managePaths").onclick = (e) => {
+        e.stopPropagation();
+        openManage("paths");
+    };
+
+    document.getElementById("manageRules").onclick = (e) => {
+        e.stopPropagation();
+        openManage("rules");
+    };
+
+    document.getElementById("userAgents").parentElement.onclick = () => {
+        openPopup(
+            "Top User Agents",
+            data.agents.map(a => `${a.name} → ${a.count} requests`)
+        );
+    };
+
+    document.getElementById("blockedIPs").parentElement.onclick = () => {
+        openPopup(
+            "Blocked IPs Details",
+            data.blockedIPs.map(ip => 
+                `${ip.ip} | requests → ${ip.requests}`
+            )
+        );
+    };
+
+    document.getElementById("rulesDebug").parentElement.onclick = () => {
+        openPopup(
+            "Attack Rules",
+            data.rules.map(r => `${r.name} → ${r.count} blocked`)
+        );
+    };
+
+    document.getElementById("invalidHeaders").parentElement.onclick = () => {
+        openPopup(
+            "Invalid Headers Details",
+            data.invalidHeaders.map(h => 
+            `${h.name} | requests → ${h.count}`)
+        );
+    };
+    
+    document.getElementById("geoList").parentElement.onclick = () => {
+        openPopup(
+            "Geo Attacks",
+            data.geo.map(g => `${g.country}: ${g.req} req / ${g.ip} IPs`)
+        );
+    };
+}
+
+function renderList(id, items){
+    const el = document.getElementById(id);
+    el.innerHTML = "";
+    items.forEach(i=>{
+        const li = document.createElement("li");
+        li.innerText = i;
+        el.appendChild(li);
+    });
+}
+
+updateAdvancedUI();
+setInterval(updateAdvancedUI, 86400000);
+
+function generateHistory() {
+    const data = [];
+
+    for (let h = 0; h < 24; h++) {
+        const hour = {
+            label: `${h}:00`,
+            minutes: Array.from({ length: 60 }, () => ({
+                total: Math.random() * 100,
+                blocked: Math.random() * 20,
+                verified: Math.random() * 80,
+                x4: Math.random() * 10,
+                x5: Math.random() * 5,
+                ip: Math.random() * 30,
+                bip: Math.random() * 10
+            }))
+        };
+
+        data.push(hour);
+    }
+
+    return data;
+}
+
+function renderHour(hourIndex) {
+    const hour = historyData[hourIndex];
+
+    const labels = hour.minutes.map((_, i) => i + ":00");
+
+    const datasets = [
+        hour.minutes.map(m => m.total),
+        hour.minutes.map(m => m.blocked),
+        hour.minutes.map(m => m.verified),
+        hour.minutes.map(m => m.x4),
+        hour.minutes.map(m => m.x5),
+        hour.minutes.map(m => m.ip),
+        hour.minutes.map(m => m.bip),
+    ];
+
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: datasets.map((d, i) => ({
+                label: names[i],
+                data: d,
+                borderColor: colors[i],
+                backgroundColor: colors[i] + '10',
+                fill: true,
+                tension: 0.3
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: '#fff' } }
+            },
+            scales: {
+                x: { ticks: { color: '#aaa' } },
+                y: { ticks: { color: '#aaa' } }
+            }
+        }
+    });
+
+    applyFilters();
+}
+
+function createChart(data) {
+    if (chart) chart.destroy();
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: data.datasets.map((d,i)=>({
+                label: names[i],
+                data: d,
+                borderColor: colors[i],
+                backgroundColor: colors[i] + '10',
+                fill: true,
+                tension: 0.3,
+                hidden: false
+            }))
+        },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        interaction: {
+            mode: 'index',
+            intersect: false
+        },
+
+        plugins: {
+            legend: { labels: { color: '#fff' } },
+
+            tooltip: {
+                mode: 'index',
+                intersect: false
+            }
+        },
+
+        scales: {
+            x: { ticks:{color:'#aaa'} },
+            y: { ticks:{color:'#aaa'} }
+        }
+    }
+    });
+
+    applyFilters();
+}
+
+let realtimeInterval = null;
+
+function startRealtime() {
+    if (chart) chart.destroy();
+
+    realtimeData = {
+        labels: [],
+        datasets: Array.from({length: 7}, () => [])
+    };
+
+    chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: realtimeData.labels,
+            datasets: names.map((name, i) => ({
+                label: name,
+                data: realtimeData.datasets[i],
+                borderColor: colors[i],
+                backgroundColor: colors[i] + '10',
+                fill: true,
+                tension: 0.3,
+                animation: true
+            }))
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { labels: { color: '#fff' } }
+            },
+            scales: {
+                x: { ticks: { color: '#aaa' } },
+                y: { ticks: { color: '#aaa' } }
+            }
+        }
+    });
+
+    if (realtimeInterval) clearInterval(realtimeInterval);
+
+    realtimeInterval = setInterval(() => {
+        const now = new Date().toLocaleTimeString();
+
+        realtimeData.labels.push(now);
+
+        realtimeData.datasets.forEach((ds, i) => {
+            ds.push(Math.floor(Math.random() * (i === 0 ? 100 : 20)));
+        });
+
+        if (realtimeData.labels.length > 3600) {
+            realtimeData.labels.shift();
+            realtimeData.datasets.forEach(ds => ds.shift());
+        }
+
+        chart.update();
+    }, 1500);
+
+    applyFilters();
+}
+
+document.getElementById('timeRange').addEventListener('input', (e) => {
+    const val = parseInt(e.target.value);
+
+    document.getElementById('timeLabel').innerText =
+        val + (val === 1 ? ' hour back' : ' hours back');
+
+    if (val === 0) {
+        setActive('realtimeBtn');
+        startRealtime();
+    } else {
+         renderHour(val - 1);
+    }
+
+});
+
+document.querySelectorAll('.details-block').forEach(block => {
+    block.addEventListener('mouseenter', () => {
+        const now = new Date().toLocaleString();
+        block.setAttribute('title', `Updated: ${now}`);
+    });
+});
+
+document.getElementById('realtimeBtn').onclick = () => {
+    setActive('realtimeBtn');
+    startRealtime();
+};
+
+document.getElementById('daysBtn').onclick = () => {
+    if (realtimeInterval) clearInterval(realtimeInterval);
+    createChart(data7days);
+    setActive('daysBtn');
+};
+
+document.getElementById('hoursBtn').onclick = () => {
+    if (realtimeInterval) clearInterval(realtimeInterval);
+    createChart(data24h);
+    setActive('hoursBtn');
+};
+
+function setActive(id){
+    document.querySelectorAll('.range button').forEach(b=>b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+document.querySelectorAll('.filters input').forEach(input=>{
+    input.addEventListener('change',()=>{
+        const i = input.dataset.index;
+        chart.data.datasets[i].hidden = !input.checked;
+        chart.update();
+    });
+});
+
+document.getElementById('topPathBtn').addEventListener('click', () => {
+    document.getElementById('detailsSection').scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+    });
+});
+
+createChart(data7days);
+historyData = generateHistory();
+renderHour(0);
+
+const canvas = document.getElementById('bgCanvas');
+const ctxBg = canvas.getContext('2d');
+
+let particles = [];
+const PARTICLE_COUNT = 150;
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function createParticles() {
+    particles = [];
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+        particles.push({
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            vx: (Math.random() - 0.5) * 0.3,
+            vy: (Math.random() - 0.5) * 0.3,
+            size: Math.random() * 2
+        });
+    }
+}
+
+createParticles();
+
+let mouse = {
+    x: window.innerWidth / 2,
+    y: window.innerHeight / 2
+};
+
+window.addEventListener('mousemove', (e) => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+
+function draw() {
+    ctxBg.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+            let dx = particles[i].x - particles[j].x;
+            let dy = particles[i].y - particles[j].y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < 140) {
+                ctxBg.strokeStyle = "rgba(77,163,255," + (1 - dist / 140) * 0.3 + ")";
+                ctxBg.lineWidth = 1;
+                ctxBg.beginPath();
+                ctxBg.moveTo(particles[i].x, particles[i].y);
+                ctxBg.lineTo(particles[j].x, particles[j].y);
+                ctxBg.stroke();
+            }
+        }
+    }
+
+    particles.forEach(p => {
+        let dx = p.x - mouse.x;
+        let dy = p.y - mouse.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < 180) {
+            ctxBg.strokeStyle = "rgba(0,255,180," + (1 - dist / 180) * 0.5 + ")";
+            ctxBg.beginPath();
+            ctxBg.moveTo(p.x, p.y);
+            ctxBg.lineTo(mouse.x, mouse.y);
+            ctxBg.stroke();
+        }
+    });
+
+    particles.forEach(p => {
+        ctxBg.fillStyle = "#4da3ff";
+        ctxBg.beginPath();
+        ctxBg.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctxBg.fill();
+
+        p.x += p.vx;
+        p.y += p.vy;
+
+        if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+        if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+    });
+
+    requestAnimationFrame(draw);
+}
+
+draw();
+
+</script>
+
 </body>
 </html>
